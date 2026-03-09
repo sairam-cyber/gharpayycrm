@@ -11,6 +11,8 @@ CREATE TABLE leads (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   name TEXT NOT NULL,
   phone TEXT NOT NULL,
+  email TEXT,
+  budget TEXT,
   source TEXT NOT NULL, -- e.g., 'Website', 'Tally', 'WhatsApp'
   status TEXT DEFAULT 'New Lead', -- New Lead, Contacted, Booked, etc.
   agent_id UUID REFERENCES agents(id),

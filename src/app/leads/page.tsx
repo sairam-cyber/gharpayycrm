@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase';
+import { supabase, isMock } from '@/lib/supabase';
+import { mockLeads } from '@/lib/mockData';
 import { Lead } from '@/types';
 import { Search, Filter, ChevronDown, MoreHorizontal, User } from 'lucide-react';
 
@@ -11,6 +12,7 @@ const STAGES = [
 ];
 
 const SOURCES = ['All Sources', 'Tally', 'Google', 'Calendly', 'Walk-in', 'Referral', 'Website', 'Unknown'];
+const LOCATIONS = ['All Locations', 'Koramangala', 'HSR Layout', 'Indiranagar', 'BTM Layout', 'Whitefield', 'Electronic City', 'JP Nagar'];
 
 export default function LeadsPage() {
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -23,8 +25,15 @@ export default function LeadsPage() {
   }, []);
 
   const fetchLeads = async () => {
-    const { data } = await supabase.from('leads').select('*').order('created_at', { ascending: false });
-    if (data) setLeads(data);
+    if (isMock) {
+      setLeads(mockLeads);
+      return;
+    }
+    const { data } = await supabase
+      .from('leads')
+      .select('*, agents(name)')
+      .order('created_at', { ascending: false });
+    if (data) setLeads(data as (Lead & { agents: { name: string } | null })[]);
   };
 
   const filteredLeads = leads.filter(lead => {
@@ -150,9 +159,9 @@ export default function LeadsPage() {
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-2">
                       <div className="w-7 h-7 bg-slate-900 rounded-full flex items-center justify-center text-[10px] font-black text-white shrink-0">
-                        {lead.agent_id ? 'RS' : '—'}
+                        {lead.agents?.name ? lead.agents.name.split(' ').map(n => n[0]).join('').toUpperCase() : '—'}
                       </div>
-                      <span className="text-sm font-bold text-slate-700">Rahul</span>
+                      <span className="text-sm font-bold text-slate-700">{lead.agents?.name || 'Unassigned'}</span>
                     </div>
                   </td>
                 </tr>

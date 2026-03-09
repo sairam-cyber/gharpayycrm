@@ -24,6 +24,7 @@ export interface Lead {
   move_in_date?: string;
   amenities?: string[];
   agent_id: string;
+  agents?: { name: string };
   created_at: string;
   updated_at: string;
 }
@@ -31,6 +32,9 @@ export interface Lead {
 export interface Agent {
   id: string;
   name: string;
+  email?: string;
+  phone?: string;
+  status?: 'active' | 'inactive';
   last_assigned_at: string;
 }
 

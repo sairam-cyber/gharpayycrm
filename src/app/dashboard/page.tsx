@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase';
+import { supabase, isMock } from '@/lib/supabase';
+import { mockLeads } from '@/lib/mockData';
 import { Lead, LeadStatus } from '@/types';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
@@ -19,6 +20,10 @@ export default function DashboardPage() {
   }, []);
 
   const fetchLeads = async () => {
+    if (isMock) {
+      setLeads([...mockLeads]);
+      return;
+    }
     const { data } = await supabase.from('leads').select('*').order('created_at', { ascending: false });
     if (data) setLeads(data);
   };
@@ -52,11 +57,22 @@ export default function DashboardPage() {
   ];
 
   const sourceData = [
-    { name: 'Website', value: leads.filter(l => l.source === 'Website').length || 1 },
-    { name: 'Google', value: leads.filter(l => l.source === 'Google').length || 2 },
-    { name: 'Referral', value: leads.filter(l => l.source === 'Referral').length || 1 },
-    { name: 'Other', value: leads.filter(l => l.source === 'Unknown').length || 1 },
-  ];
+    { name: 'Website', value: leads.filter(l => l.source === 'Website').length },
+    { name: 'Google', value: leads.filter(l => l.source === 'Google').length },
+    { name: 'Referral', value: leads.filter(l => l.source === 'Referral').length },
+    { name: 'Other', value: leads.filter(l => !['Website', 'Google', 'Referral'].includes(l.source)).length },
+  ].filter(d => d.value > 0);
+
+  const getAgentWorkload = () => {
+    const counts = leads.reduce((acc, l) => {
+      acc[l.agent_id] = (acc[l.agent_id] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+    
+    return Object.entries(counts).map(([agent_id, count]) => ({ agent_id, count }));
+  };
+
+  const agentWorkload = getAgentWorkload();
 
   return (
     <div className="p-10 max-w-[1400px] mx-auto">
@@ -94,7 +110,7 @@ export default function DashboardPage() {
               <Calendar size={20} />
             </div>
           </div>
-          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Visits Scheduled</p>
+          <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Visits Scheduled</p>
           <p className="text-3xl font-black text-slate-900 mt-1">{stats.scheduled}</p>
         </div>
 
@@ -168,15 +184,27 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Agent Workload Placeholder */}
+      {/* Agent Workload */}
       <div className="stat-card">
         <div className="flex items-center gap-2 mb-6">
           <TrendingUp className="text-slate-400" size={18} />
           <h3 className="font-bold text-slate-800">Agent Workload</h3>
         </div>
-        <div className="overflow-hidden bg-slate-50 rounded-xl border border-slate-100 italic text-slate-400 text-sm p-12 text-center">
-          Agent performance data will appear here once assignments are active.
-        </div>
+        {agentWorkload.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {agentWorkload.map((item) => (
+              <div key={item.agent_id} className="p-4 bg-slate-50 rounded-xl border border-slate-100">
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Leads Assigned</p>
+                <p className="text-2xl font-black text-slate-900 mt-1">{item.count}</p>
+                <p className="text-[10px] font-medium text-slate-500 mt-1">Agent ID: {item.agent_id.split('-')[0]}...</p>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="overflow-hidden bg-slate-50 rounded-xl border border-slate-100 italic text-slate-400 text-sm p-12 text-center">
+            Agent performance data will appear here once assignments are active.
+          </div>
+        )}
       </div>
     </div>
   );

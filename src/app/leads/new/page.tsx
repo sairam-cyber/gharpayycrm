@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { supabase } from '@/lib/supabase';
+import { supabase, isMock } from '@/lib/supabase';
+import { mockAgents } from '@/lib/mockData';
 import { LeadStatus } from '@/types';
 import { 
   ArrowLeft, UserPlus, Phone, Mail, IndianRupee, 
@@ -11,11 +12,10 @@ import {
   Utensils, Layout
 } from 'lucide-react';
 
-const LOCATIONS: string[] = [];
+const LOCATIONS: string[] = ['Koramangala', 'HSR Layout', 'Indiranagar', 'BTM Layout', 'Whitefield', 'Electronic City', 'JP Nagar'];
 const SOURCES = ['Website', 'Google', 'Referral', 'Walk-in', 'Tally', 'Calendly', 'Other'];
 const PG_TYPES = ['Boys', 'Girls', 'Co-ed'];
 const PRIORITIES = ['low', 'medium', 'high'];
-const AGENTS: { id: string; name: string }[] = [];
 
 const AMENITIES = [
   { id: 'Good Food', icon: Utensils },
@@ -33,6 +33,7 @@ const AMENITIES = [
 export default function AddLeadPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [agents, setAgents] = useState<{ id: string; name: string }[]>([]);
   const [formData, setFormData] = useState({
     name: '',
     phone: '',
@@ -48,6 +49,18 @@ export default function AddLeadPage() {
     amenities: [] as string[],
   });
 
+  useEffect(() => {
+    const fetchAgents = async () => {
+      if (isMock) {
+        setAgents(mockAgents.map(a => ({ id: a.id, name: a.name })));
+        return;
+      }
+      const { data } = await supabase.from('agents').select('id, name');
+      if (data) setAgents(data);
+    };
+    fetchAgents();
+  }, []);
+
   const handleToggleAmenity = (amenityId: string) => {
     setFormData(prev => ({
       ...prev,
@@ -61,18 +74,29 @@ export default function AddLeadPage() {
     e.preventDefault();
     setLoading(true);
 
-    const { error } = await supabase.from('leads').insert([{
-      ...formData,
-      status: 'New Lead' as LeadStatus,
-      updated_at: new Date().toISOString(),
-    }]);
+    try {
+      const response = await fetch('/api/leads', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
 
-    if (!error) {
-      router.push('/dashboard');
-    } else {
-      alert('Error creating lead: ' + error.message);
+      const result = await response.json();
+
+      if (response.ok) {
+        router.push('/dashboard');
+      } else {
+        console.error('API Error Response:', result);
+        alert('Error creating lead: ' + (result.error || 'Unknown error'));
+      }
+    } catch (error: any) {
+      console.error('Fetch Error:', error);
+      alert('Error creating lead: ' + error.name + ': ' + error.message);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   return (
@@ -220,7 +244,7 @@ export default function AddLeadPage() {
                   onChange={(e) => setFormData({...formData, agent_id: e.target.value})}
                 >
                   <option value="">Select Agent</option>
-                  {AGENTS.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                  {agents.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
                 </select>
               </div>
             </div>

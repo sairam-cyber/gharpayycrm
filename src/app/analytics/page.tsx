@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase';
+import { supabase, isMock } from '@/lib/supabase';
+import { mockLeads } from '@/lib/mockData';
 import { Lead } from '@/types';
 import { 
   LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
@@ -21,6 +22,11 @@ export default function AnalyticsPage() {
 
   const fetchLeads = async () => {
     setLoading(true);
+    if (isMock) {
+      setLeads([...mockLeads]);
+      setLoading(false);
+      return;
+    }
     const { data } = await supabase.from('leads').select('*').order('created_at', { ascending: true });
     if (data) setLeads(data);
     setLoading(false);
@@ -75,18 +81,15 @@ export default function AnalyticsPage() {
 
   // Data Aggregation: Agent Performance
   const getAgentData = () => {
-    const agents: Record<string, { name: string, total: number, won: number }> = {
-      '1': { name: 'Rahul', total: 0, won: 0 },
-      '2': { name: 'Priya', total: 0, won: 0 },
-      '3': { name: 'Amit', total: 0, won: 0 },
-      '4': { name: 'Sneha', total: 0, won: 0 },
-    };
+    const agents: Record<string, { name: string, total: number, won: number }> = {};
 
     leads.forEach(l => {
-      if (agents[l.agent_id]) {
-        agents[l.agent_id].total++;
-        if (l.status === 'Won') agents[l.agent_id].won++;
+      const agentId = l.agent_id || 'unassigned';
+      if (!agents[agentId]) {
+        agents[agentId] = { name: `Agent ${agentId.split('-')[0]}`, total: 0, won: 0 };
       }
+      agents[agentId].total++;
+      if (l.status === 'Won') agents[agentId].won++;
     });
 
     return Object.values(agents);

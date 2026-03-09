@@ -26,12 +26,18 @@ interface PipelineProps {
 export default function LeadPipeline({ leads, onMoveLead }: PipelineProps) {
   const [selectedLeadForVisit, setSelectedLeadForVisit] = useState<Lead | null>(null);
 
-  const getAgentInitials = (agentId: string) => {
-    // Dummy initials for now
-    const map: Record<string, string> = {
-      '1': 'RS', '2': 'PN', '3': 'AP', '4': 'SR'
-    };
-    return map[agentId] || 'RS';
+  const getAgentInitials = (lead: Lead) => {
+    if (lead.agents?.name) {
+      return lead.agents.name.split(' ').map(n => n[0]).join('').toUpperCase();
+    }
+    return '?';
+  };
+
+  const isOverdue = (updatedAt: string, status: LeadStatus) => {
+    if (status === 'Won' || status === 'Lost') return false;
+    const lastUpdate = new Date(updatedAt).getTime();
+    const now = new Date().getTime();
+    return (now - lastUpdate) > 24 * 60 * 60 * 1000;
   };
 
   return (
@@ -55,44 +61,53 @@ export default function LeadPipeline({ leads, onMoveLead }: PipelineProps) {
           <div className="space-y-3 overflow-y-auto pr-1 flex-1 scrollbar-hide">
             {leads
               .filter((lead) => lead.status === stage)
-              .map((lead) => (
-                <div key={lead.id} className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm transition-all duration-300 hover:shadow-xl hover:translate-y-[-2px] group relative overflow-hidden">
-                  <div className="flex justify-between items-start mb-1">
-                    <p className="font-black text-slate-900 text-[15px] leading-tight group-hover:text-primary transition-colors">
-                      {lead.name}
+              .map((lead) => {
+                const overdue = isOverdue(lead.updated_at, lead.status);
+                return (
+                  <div key={lead.id} className={`bg-white p-4 rounded-xl border ${overdue ? 'border-red-200 shadow-red-50' : 'border-slate-100'} shadow-sm transition-all duration-300 hover:shadow-xl hover:translate-y-[-2px] group relative overflow-hidden`}>
+                    {overdue && (
+                      <div className="mb-2 flex items-center gap-1.5">
+                        <div className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                        <span className="text-[9px] font-black text-red-500 uppercase tracking-widest">Follow-up Overdue</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between items-start mb-1">
+                      <p className="font-black text-slate-900 text-[15px] leading-tight group-hover:text-primary transition-colors">
+                        {lead.name}
+                      </p>
+                    </div>
+                    
+                    <p className="text-[11px] font-bold text-slate-400 flex items-center gap-1 mb-3 uppercase tracking-tighter">
+                      {lead.location || 'Unknown'} · <span className="text-slate-500">₹{lead.budget || '12,000'}/mo</span>
                     </p>
-                  </div>
-                  
-                  <p className="text-[11px] font-bold text-slate-400 flex items-center gap-1 mb-3 uppercase tracking-tighter">
-                    {lead.location || 'Unknown'} · <span className="text-slate-500">₹{lead.budget || '12,000'}/mo</span>
-                  </p>
-                  
-                  <div className="flex justify-between items-end">
-                    <div className="flex flex-wrap gap-1.5">
-                      <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-50 border border-slate-100 text-[10px] font-black transition-colors ${
-                        lead.type === 'Boys' ? 'text-blue-500' : lead.type === 'Girls' ? 'text-pink-500' : 'text-purple-500'
-                      }`}>
-                        {lead.type === 'Boys' ? '♂' : lead.type === 'Girls' ? '♀' : '⚦'} {lead.type || 'Boys'}
+                    
+                    <div className="flex justify-between items-end">
+                      <div className="flex flex-wrap gap-1.5">
+                        <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-50 border border-slate-100 text-[10px] font-black transition-colors ${
+                          lead.type === 'Boys' ? 'text-blue-500' : lead.type === 'Girls' ? 'text-pink-500' : 'text-purple-500'
+                        }`}>
+                          {lead.type === 'Boys' ? '♂' : lead.type === 'Girls' ? '♀' : '⚦'} {lead.type || 'Boys'}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-center w-7 h-7 bg-slate-900 rounded-full text-[9px] font-black text-white shadow-lg shadow-black/20 shrink-0" title={lead.agents?.name}>
+                        {getAgentInitials(lead)}
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-center w-7 h-7 bg-slate-900 rounded-full text-[9px] font-black text-white shadow-lg shadow-black/20 shrink-0">
-                      {getAgentInitials(lead.agent_id)}
+                    {/* Move dropdown hidden by default, visible on hover for functionality */}
+                    <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <select 
+                        className="text-[10px] bg-white border border-slate-200 rounded-full px-1 py-0.5 text-slate-400 font-bold outline-none"
+                        onChange={(e) => onMoveLead(lead.id, e.target.value as LeadStatus)}
+                        value={stage}
+                      >
+                        {STAGES.map(s => <option key={s} value={s}>{s}</option>)}
+                      </select>
                     </div>
                   </div>
-
-                  {/* Move dropdown hidden by default, visible on hover for functionality */}
-                  <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <select 
-                      className="text-[10px] bg-white border border-slate-200 rounded-full px-1 py-0.5 text-slate-400 font-bold outline-none"
-                      onChange={(e) => onMoveLead(lead.id, e.target.value as LeadStatus)}
-                      value={stage}
-                    >
-                      {STAGES.map(s => <option key={s} value={s}>{s}</option>)}
-                    </select>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
           </div>
         </div>
       ))}

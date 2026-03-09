@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase';
+import { supabase, isMock } from '@/lib/supabase';
+import { mockVisits } from '@/lib/mockData';
 import { Visit, VisitStatus } from '@/types';
 import { CheckCircle2, XCircle, Clock, MapPin, Home } from 'lucide-react';
 
@@ -15,6 +16,11 @@ export default function VisitsPage() {
 
   const fetchVisits = async () => {
     setLoading(true);
+    if (isMock) {
+      setVisits([...mockVisits]);
+      setLoading(false);
+      return;
+    }
     // Fetch visits with lead details and agent (joining)
     const { data, error } = await supabase
       .from('visits')
@@ -33,6 +39,12 @@ export default function VisitsPage() {
   };
 
   const handleUpdateStatus = async (visitId: string, leadId: string, outcome: VisitStatus) => {
+    if (isMock) {
+      const visit = mockVisits.find(v => v.id === visitId);
+      if (visit) visit.outcome = outcome;
+      fetchVisits();
+      return;
+    }
     // 1. Update visit outcome
     const { error } = await supabase
       .from('visits')
